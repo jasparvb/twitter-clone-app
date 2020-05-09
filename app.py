@@ -178,6 +178,18 @@ def users_followers(user_id):
     return render_template('users/followers.html', user=user)
 
 
+@app.route('/users/<int:user_id>/likes')
+def users_likes(user_id):
+    """Show list of likes of this user."""
+
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
+
+    user = User.query.get_or_404(user_id)
+    return render_template('users/likes.html', user=user)
+
+
 @app.route('/users/follow/<int:follow_id>', methods=['POST'])
 def add_follow(follow_id):
     """Add a follow for the currently-logged-in user."""
@@ -206,6 +218,23 @@ def stop_following(follow_id):
     db.session.commit()
 
     return redirect(f"/users/{g.user.id}/following")
+
+
+@app.route('/users/add_like/<int:message_id>', methods=['POST'])
+def add_like(message_id):
+    """Add a like for a message from the currently-logged-in user."""
+
+    message = Message.query.get_or_404(message_id)
+
+    if message in g.user.likes:
+        g.user.likes.remove(message)
+        db.session.commit()
+    
+    elif message not in g.user.messages:
+        g.user.likes.append(message)
+        db.session.commit()
+
+    return redirect("/")
 
 
 @app.route('/users/profile', methods=["GET", "POST"])

@@ -33,6 +33,16 @@
             </div>
             <p class="single-message">{{ message.text }}</p>
             <span class="text-muted">{{ message.timestamp.strftime('%d %B %Y') }}</span>
+            <form method="POST" action="/users/add_like/{{ message.id }}">
+              <button class="
+                btn 
+                btn-sm
+                m-1 
+                {{'btn-primary' if message in g.user.likes else 'btn-secondary'}}"
+              >
+                <i class="fa fa-thumbs-up"></i> 
+              </button>
+            </form>
           </div>
         </li>
       </ul>
