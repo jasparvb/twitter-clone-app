@@ -222,8 +222,12 @@ def stop_following(follow_id):
 
 @app.route('/users/add_like/<int:message_id>', methods=['POST'])
 def add_like(message_id):
-    """Add a like for a message from the currently-logged-in user."""
+    """Toggle a like for a message from the currently-logged-in user."""
 
+    if not g.user:
+        flash("You must log in to like a warble.", "danger")
+        return redirect("/login")
+    
     message = Message.query.get_or_404(message_id)
 
     if message in g.user.likes:
@@ -253,8 +257,8 @@ def profile():
                              form.password.data):
             g.user.username = form.username.data
             g.user.email = form.email.data
-            g.user.image_url = form.image_url.data
-            g.user.header_image_url = form.header_image_url.data
+            g.user.image_url = form.image_url.data or "/static/images/default-pic.png"
+            g.user.header_image_url = form.header_image_url.data or "/static/images/warbler-hero.jpg"
             g.user.bio = form.bio.data
 
             db.session.commit()
