@@ -51,6 +51,7 @@ class MessageViewTestCase(TestCase):
 
         db.session.commit()
 
+
     def test_add_message(self):
         """Can use add a message?"""
 
@@ -71,3 +72,100 @@ class MessageViewTestCase(TestCase):
 
             msg = Message.query.one()
             self.assertEqual(msg.text, "Hello")
+
+
+    def test_add_message_not_logged_in(self):
+        """Can you add a message when not logged in?"""
+
+        with self.client as c:
+            resp = c.post("/messages/new", data={"text": "Hello"}, follow_redirects=True)
+            html = resp.get_data(as_text=True)
+
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn('Access unauthorized', html)
+
+
+    def test_add_message_invalid_user(self):
+        with self.client as c:
+            with c.session_transaction() as sess:
+                sess[CURR_USER_KEY] = 111111
+
+            resp = c.post("/messages/new", data={"text": "Hello"}, follow_redirects=True)
+            html = resp.get_data(as_text=True)
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn('Access unauthorized', html)
+
+
+    def test_show_message(self):
+        """Does the message display?"""
+
+        m = Message(text="Yo solo sé que no sé nada")
+        self.testuser.messages.append(m)
+        db.session.commit()
+        test_id = m.id
+
+        with self.client as c:
+            resp = c.get(f'/messages/{test_id}')
+            html = resp.get_data(as_text=True)
+
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn('<p class="single-message">Yo solo sé que no sé nada</p>', html)
+
+
+    def test_delete_message(self):
+        """Can user delete a message?"""
+        m = Message(text="Yo solo sé que no sé nada")
+        self.testuser.messages.append(m)
+        db.session.commit()
+        test_id = m.id
+
+        with self.client as c:
+            with c.session_transaction() as sess:
+                sess[CURR_USER_KEY] = self.testuser.id
+
+            resp = c.post(f"/messages/{test_id}/delete", follow_redirects=True)
+
+            self.assertEqual(resp.status_code, 200)
+
+            m = Message.query.get(test_id)
+            self.assertIsNone(m)
+
+
+    def test_delete_message_invalid_user(self):
+        """Can user delete a message that is not his?"""
+        m = Message(text="Yo solo sé que no sé nada")
+        self.testuser.messages.append(m)
+        db.session.commit()
+        test_id = m.id
+
+        with self.client as c:
+            with c.session_transaction() as sess:
+                sess[CURR_USER_KEY] = 11111
+
+            resp = c.post(f"/messages/{test_id}/delete", follow_redirects=True)
+
+            html = resp.get_data(as_text=True)
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn('Access unauthorized', html)
+
+            m = Message.query.get(test_id)
+            self.assertIsNotNone(m)
+
+
+    def test_delete_message_not_logged_in(self):
+        """Can you delete a message when not logged in?"""
+        m = Message(text="Yo solo sé que no sé nada")
+        self.testuser.messages.append(m)
+        db.session.commit()
+        test_id = m.id
+
+        with self.client as c:
+
+            resp = c.post(f"/messages/{test_id}/delete", follow_redirects=True)
+
+            html = resp.get_data(as_text=True)
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn('Access unauthorized', html)
+
+            m = Message.query.get(test_id)
+            self.assertIsNotNone(m)

@@ -9,7 +9,7 @@ import os
 from unittest import TestCase
 from sqlalchemy import exc
 
-from models import db, User, Message, Follows
+from models import db, User, Message, Follows, Likes
 
 # BEFORE we import our app, let's set an environmental variable
 # to use a different database for tests (we need to do this
@@ -48,7 +48,7 @@ class MessageModelTestCase(TestCase):
         )
 
         db.session.commit()
-        
+
         self.u1 = u1
         self.client = app.test_client()
 
@@ -90,3 +90,19 @@ class MessageModelTestCase(TestCase):
         self.u1.messages.append(m)
         with self.assertRaises(exc.IntegrityError) as context:
             db.session.commit()
+
+    def test_likes(self):
+        m = Message(text="Yo solo sé que no sé nada")
+        self.u1.messages.append(m)
+        u = User.signup(username="terstegen1", email="terstegen@fcb.es", password="W.A.L.L", image_url="/images/terstegen.jpg")
+        db.session.add_all([m, u])
+        db.session.commit()
+
+        u.likes.append(m)
+
+        db.session.commit()
+
+        l = Likes.query.filter(Likes.user_id == u.id).all()
+        self.assertEqual(len(l), 1)
+        self.assertEqual(l[0].message_id, m.id)
+      
