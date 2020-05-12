@@ -8,7 +8,7 @@
 import os
 from unittest import TestCase
 
-from models import db, connect_db, Message, User
+from models import db, connect_db, Message, User, Likes
 
 # BEFORE we import our app, let's set an environmental variable
 # to use a different database for tests (we need to do this
@@ -119,6 +119,74 @@ class UserViewTestCase(TestCase):
             self.assertEqual(resp.status_code, 200)
             self.assertIn('<p>Yo solo sé que no sé nada</p>', html)
 
+    
+    def test_show_user_likes_not_logged_in(self):
+        """Can you view users likes when not logged in?"""
+
+        with self.client as c:
+            resp = c.get(f"/users/{self.testuser.id}/likes", follow_redirects=True)
+            html = resp.get_data(as_text=True)
+
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn('Access unauthorized', html)
+
+    
+    def test_add_like(self):
+        """Can a user add a like?"""
+
+        m = Message(id=1111, text="Yo solo sé que no sé nada", user_id=self.testuser2.id)
+        db.session.add(m)
+        db.session.commit()
+
+        with self.client as c:
+            with c.session_transaction() as sess:
+                sess[CURR_USER_KEY] = self.testuser.id
+
+            resp = c.post(f"/users/add_like/1111", follow_redirects=True)
+
+            likes = Likes.query.filter(Likes.message_id==1111).all()
+            self.assertEqual(resp.status_code, 200)
+            self.assertEqual(len(likes), 1)
+            self.assertEqual(likes[0].user_id, self.testuser.id)
+
+
+    def test_remove_like(self):
+        """Can a user remove a like?"""
+
+        m = Message(id=1111, text="Yo solo sé que no sé nada", user_id=self.testuser2.id)
+        db.session.add(m)
+        db.session.commit()
+        self.testuser.likes.append(m)
+        db.session.commit()
+        likes = Likes.query.filter(Likes.message_id==1111).all()
+        self.assertEqual(len(likes), 1)
+
+        with self.client as c:
+            with c.session_transaction() as sess:
+                sess[CURR_USER_KEY] = self.testuser.id
+
+            resp = c.post(f"/users/add_like/1111", follow_redirects=True)
+
+            likes = Likes.query.filter(Likes.message_id==1111).all()
+            self.assertEqual(resp.status_code, 200)
+            self.assertEqual(len(likes), 0)
+
+    def test_add_like_not_logged_in(self):
+        """Can a user who is not logged in add a like?"""
+        m = Message(id=1111, text="Yo solo sé que no sé nada", user_id=self.testuser2.id)
+        db.session.add(m)
+        db.session.commit()
+
+        with self.client as c:
+
+            resp = c.post(f"/users/add_like/1111", follow_redirects=True)
+            html = resp.get_data(as_text=True)
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn('You must log in to like a warble.', html)
+
+            likes = Likes.query.filter(Likes.message_id==1111).all()
+            self.assertEqual(len(likes), 0)
+
 
     def test_following_page_logged_in(self):
         """Can a user view the following page if logged in?"""
@@ -170,4 +238,3 @@ class UserViewTestCase(TestCase):
 
             self.assertEqual(resp.status_code, 200)
             self.assertIn('Access unauthorized', html)
-
